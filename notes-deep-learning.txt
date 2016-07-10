@@ -1,0 +1,806 @@
+100-column-rule------------------------------------------------------------------------------------|
+####################################################################################################
+########### INTRODUCTION
+####################################################################################################
+deep learning is central and state of the art in perception-related fields. But interestingly it
+also turns out to outstand with other problems like pagerank or pharmacy.
+
+#the course has 4 PARTS: [logistic classification, stochastic optimization, data&parameter tuning,
+                          deep networks, regularization
+                          convolutional networks,
+                          embedding, recurrent models]
+# based on TENSORFLOW: a very simple python-based deep learning toolkit
+
+####################################################################################################
+########### LESSON 1: MACHINE LEARNING TO DEEP LEARNING
+####################################################################################################
+
+# SOLVING PROBLEMS:
+biggest companies use it: shines where it is lots of data and complex problems to solve.
+
+# LETS GET STARTED:
+in the 80-90s was lot of research on NNs (fukushima's neocognitron, le cun's lenet5) but CPUs were
+slow and data small. So we dropped them until last few years, when that changed (data, GPUs).
+f.e: (2009 speech recon, 2012 computer vision, 2014 machine translation.) anything to do with
+data, analytics, prediction-> definitely a field to apply NNs.
+
+# SUPERVISED CLASSIFICATION: based on labeled data. Classification, and more generally prediction
+is the central building block of machine learning:
+   once you can classify->[detect,rank, regression, reinforcement learning] are easy
+
+# TRAINING YOUR LOGISTIC CLASSIFIER:
+A Logistic Cllfier. is a linear classifier: takes an input and applies a linear function
+(matrix mult.) to it:  WX+b=Y
+W=weights, X=input, b=bias ,y=prediction score//W,b are trained so that the model be good at pred.
+the prediction score is a vector, with as much dimensions as possible labels. The entry of each
+dim. is the score for that label. The way to turn scores into probabilities is the SOFTMAX FN:
+     S(y_i)= exp(y_i)/sum(j; exp(y_j)) // so the sum of all probs is 1.
+*** scores in the context of log.reg. are also called "logits"
+
+# QUIZ: SOFTMAX
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    return np.array([np.exp(i)/sum(np.exp(x)) for i in x]) ## np.exp(x)/np.sum(np.exp(x), axis=0)
+w = np.array([1,2,3,4,5])
+print(sum(softmax(w)))
+
+*** IF WE MULTIPLY THE SCORES, RESULTS WILL POLARIZE TO 1 AND ZEROS. IF DIVIDE, TEND TO UNIFORM.
+*** keep this in mind for later, as we want the algo. to gain confidence as it learns
+
+# ONE-HOT ENCODING:
+this is the terminology for the vectors of the form y=[1,0,0,0,0] that represent a prediction:
+each dimension is a feature, the chosen one is set to 1 and all others to 0.
+
+# CROSS ENTROPY: denoted D for distance
+Being S(Y) the softmax and L its one-hot encoding, D(S,L) the "distance" between them:
+D(S,L)= -sum(i; L_i*log(S_i))
+*** THE CROSS ENTROPY IS NOT SYMMETRIC! D(S,L)!=D(L,S): the labels have lots of zeros, and
+you dont want to take the log of zeros!
+
+*** SUMMARIZING WORKFLOW: MULTINOMIAL LOGISTIC CLASSIFICATION D(S(WX+B),L)
+input(X)->linear model(WX+B)->logit(Y)->softmax(S(Y))->cross-entropy(D(S,L))-> 1hot labels(L)
+
+
+# MINIMIZING CROSS ENTROPY: L(W,B)=1/N*sum(i; D(S(W*X_i+b),L_i))
+L is the "loss" function, also the AVERAGE CROSS-ENTROPY.
+We want to minimize it, that would mean that the predictions are as close as possible to the labels.
+So we turned a ML problem into a numerical optimization one. How minimize? several ways, one is
+GRADIENT DESCENT, using the derivatives (e.g. graph with bowl shape).
+
+# HOW FEED INPUT, WHERE TO INITIALIZE OPTIMIZATION: (quiz: numerical stability)
+
+
+# NORMALIZED INPUTS AND WEIGHT INITIALIZATIONS:
+there are good numerical and math. reasons to keep ZERO MEAN AND EQUAL VARIANCE in all variables.
+proceed like this:  X-mean/range. e.g. RGB images, (color-128)/128 to each r,g,b color
+doesnt change the contents, but makes much easier for the optimization to proceed numerically.
+->initialize weights with gaussian rand (biases as 0), zero mean and low sigma. Passing low sigma
+values to the softmax will mean "uncertainty" since the prob.dist. becomes uniform if the logits are
+close to each other. We want this for the beginning of the learning, so USE A LOW SIGMA FOR INIT.
+
+
+# STARTING WITH TENSORFLOW, FIRST ASSIGNMENT
+
+install tensorflow for python 2 and 3:
+sudo pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.8.0-cp27-none-linux_x86_64.whl
+sudo pip3 install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.8.0-cp34-cp34m-linux_x86_64.whl
+
+*** OPTION1: working on the dockerVM connected to the google server b.gcr.io
+based on the web instructions and
+https://github.com/tensorflow/tensorflow/tree/master/tensorflow/examples/udacity
+1) on terminal: 'sudo docker -d' to start docker daemon and then
+'sudo docker run -p 8888:8888 -it --rm b.gcr.io/tensorflow-udacity/assignments:0.5.0'
+to "run the docker container from the google cloud repo".
+If you go then to http://127.0.0.1:8888/tree with your browser you can work there.
+
+
+*** OPTION2 (preferred): working on a local virtual environment
+based on https://discussions.udacity.com/t/my-experiences-installing-all-dependencies-on-linux/45352
+1) "create virtual environment in ~/deeplearn and start it. on terminal:"
+virtualenv -p /usr/bin/python2 --always-copy --system-site-packages deeplearn
+source deeplearn/bin/activate
+2) "install these": pip install numpy==1.10.1 scipy==0.16.1 Pillow
+  and also pip install sklearn matplotlib
+3) install tensorflow (see above for py2)
+4) sudo apt-get install python-pyqt5
+5) install jupyter-notebook (http://bikulov.org/blog/2015/11/07/install-jupyter-notebook-and-scientific-environment-in-ubuntu-14-dot-04-with-python-3/)
+pip install jupyter
+5) deactivate venv and configure jupyter, on terminal: (see the bikulov web for more details):
+deactivate
+mkdir -p ~/.jupyter
+cd ~/.jupyter
+openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout ${ENV}.pem -out jupnb.pem
+echo "c.NotebookApp.ip = '*'" >> jupyter_notebook_config.py
+echo "c.NotebookApp.port = 8888" >> jupyter_notebook_config.py
+echo "c.NotebookApp.open_browser = False" >> jupyter_notebook_config.py
+echo "c.NotebookApp.password = u'$(ipython -c 'from notebook.auth import passwd; print(passwd())')'" >> jupyter_notebook_config.py
+echo "c.NotebookApp.certfile = u'jupnb.pem'" >> jupyter_notebook_config.py
+echo "c.NotebookApp.cookie_secret_file = '$HOME/.jupyter/secret_cookie'" >> jupyter_notebook_config.py
+cd -
+6)start working! cd to the folder where the .ipynb exercises are, start the venv with
+'source ~/deeplearning/bin/activate' and open the notebook with 'jupyter notebook'
+
+
+# MEASURING PERFORMANCE
+not only a theoretical problem: every classifier tries to memorize the training data,thus failing to
+generalize. How solve this? Test set: used for measuring, and NOT for training
+***training a classifier is often a process of try and error! tweak, explore, measure...
+BUT this 2fold division fails when we get new examples,what happened? the test "bleeds" into the
+training set, we gave indirectly information to the classifier.
+SOLUTION? many. the simplest one->split the test into CV and test, and "hide" test till very end.
+
+# KAGGLE CHALLENGE: a portal for machine learning contests!!
+there are public CV sets, and a private test set. Some people dropped 300 places in the rank,
+bc they were overfitting on the CV and do much worse on the final test.
+
+# QUIZ: VALIDATION SET SIZE:
+dirty rule of thumb: mistrust any variation under 30 samples, could be noise!
+for example, with 3000 samples, variations less than 1% (bc 30 is 1% of 3000)
+30K samples allows about 0.1% change, BUT this is OK only if the class sizes are balanced.
+If not? you can look into CV data, but just getting more data is often best/cheapest.
+
+#STOCH. GRAD. DESC:
+weve seen the batched modell for logreg. Problem: doesnt scale well! Rule of thumb:
+for the cost function on ALL the data L(W,B)=1/N*sum(i; D(S(W*X_i+b),L_i)), computing its gradient
+-alpha*DERIV(L) COSTS 3 TIMES THE COMPUTATION. And the whole "step" is done many times even with
+good alpha.
+SOLUTION: instead computing L on all, take a tiny sample of 1-1000 RANDOM elements. This doesnt
+represent the whole at all, so very important that they are really random. And now the "step" is
+done about thousands of times, so each step wont be as good (even very bad) but the whole will
+tend to the optimum. STOCH GRAD DESC scales well with both big data and big models!!
+Happens to be the only one good enough for big data, but comes with lots of issues in practice.
+
+# MOMENTUM AND LEARNING RATE DECAY:
+Helping SGD: inputs: zero mean+equal variance, weight intit:random, zero mean, small+equal variance
+-MOMENTUM: instead of DER(L) we use -alpha*M, being M:=0.9M+DER(L)
+-LR DECAY: some like exp-decay, are different formulas. Key is to decay
+
+# PARAMETER HYPERSPACE!
+There hare lots of Hyperpars in SGD: init_alpha, alpha_decay, momentum, batch_size, weight_init...
+There are lots of good solutions for small models, but certainly none is satisfactory so far for
+the very large models. So if you have to remember 1 thing when finetuning, try to lower your alpha
+"ADAGRAD" is a variant of SGD less sensitive to hyperpars (alpha, momentum) usually worse than a
+well finetuned sgd but useful if you just want things to work.
+Its still a "shallow" model, not deep learning yet!!
+
+####################################################################################################
+########### LESSON 2: DEEP NEURAL NETWORKS
+####################################################################################################
+
+# poner concepts/last-viewed despues de la ventanita de next lesson funciona!
+https://classroom.udacity.com/courses/ud730/lessons/6379031992/concepts/64036785920923
+
+
+# iNTRO:
+1) turn the log class into a deep network->few lines of code!
+2) how the optimizer computes gradients for arbitrary fns
+3) regularization
+
+# NUMBER OF PARAMETERS:
+pics were 28x28 and we had 10 classes, so 28x28x10=7840
+but that WASNT THE SOLUTION bc we must add bias weights for each class, so 7480+10= 7850
+
+# LINEAR MODELS ARE LIMITED:
+they arent able to model efficiently outcomes that depnd, f.e. on the multiplication of 2 inputs
+but theyre efficient: big matrix multipliers are exactly what GPUs are made for
+and stable: you can prove numerically that small input changes lead to small output changes,
+and their derivatives are nice too: the der. of a lin. fn is a CONSTANT. theres nothing more stable:
+Y=WX===> der(Y)/der(X)= W'    der(Y)/der(W)= X'  (the ' means transposed like in matlab)           '
+WE WANT TO KEEP OUR PARAMETERS INSIDE LINEAR MODELS, BUT ALSO WANT THE ENTIRE MODEL TO BE NON-LINEAR
+HOW? introduce non-linearities
+
+# RELU: RECTIFIED LINEAR UNITS: the lazy engineer's favorite non-linear fn
+f(x)= 0 if x<0 x else. Very simple: derivative is 0 if x<0, 1 else;
+
+# NETWORK OF RELUS:
+so we extend our model: instead Y=X*W+b => S(Y) => one-hot we split W into 2 matrices: one from
+the X to the K-many RELUs (you can choose as many Ks as you want) and other after:
+X*W_1+b_1=>RELUs=>*W_2+b_2=>Y=>S(Y)=>one-hot.
+Congrats! this is a NEURAL NETWORK. But where are neurons, dendrites, brains???
+
+# 2-LAYER NN:
+no need to talk about neurons and that stuff in this course. Just "lazy" math is enough. The NN
+above has 2 layers, the first layer is w1,b1 and RELUs. We dont see output, so it is "hidden".
+The second one has w2, b2 and softmax fn, applied to the outputs of the hidden layer.
+
+# THE CHAIN RULE: (' here means derivative not transp)
+[g(f(x))]' = g'(f(x))*f'(x)
+if youve 2 fns that get composed, this rule says you can take the derivative by multiplying
+the separate derivatives. Thats very powerful and efficient, because there is an efficient
+data pipeline for that with lots of data reuse. Graphical notation:
+
+x->f->g->y
+
+           x
+           |
+           f'
+           |
+x->f->g'---*->y'
+
+# BACKPROP:
+so the pipeline could look like this:
+X -> [_] -> [W1] -> [_]-> [W2]  [_]-> Y
+      |      |       |     |     |    |
+      v      v       v     v     v    v
+     [_] <- [_] <- [_] <- [_] <-[_]<-[_]<- ŷ  (ŷ is the complement of y)
+
+
+####################################################################################################
+IN-BETWEEN: LECTURE OF KISHORE KONDA 9. JUNE 2016:
+-2 ways to automatize a task: input->hardcode or learning system->output
+-different approaches: artificial NN, bayesian NW, representation- or reinforcment learning
+-biological strategy is the best we know (brain)->brief explanation
+-NNs as sum of dot products. Just linear?=>
+universal approximation theorem [kolmogorov, cybenko]
+-Anything over 2 layers is considered deep, otherwise shallow. Why deep then if 2 is enough?
+ when data consists of many hyerarchies, its more efficient, and we need that for scaling up:
+      * a k-layer NW can represent a fn with a no. of hid.u. that is polynomial to the input
+      * a (k-1) layer NW scalates then exponentially in the no. of hid.u.
+-also the MANIFOLD HYPOTHESIS, which states that every "concept" (invariance) can be represented
+ as a continuous non-linear region of a multidimensional space
+-INVARIANCE: basic approach for learning invariants: sparse non-linear expansion & pooling
+             (clustering, quantization, sparse coding)=> I didnt understand this
+-on training NNs: cost, grad desc etc. sample dataset: CIFAR-10. Task: minimize cost by updating W.
+*** discriminative vs. generative models?
+*** non-convex optimization techniques
+*** there is also semi-supervised learning
+
+
+-one strategy to get the invariance is the AUTOENCODER: one hidden layer, and output with same
+ units as input, so: "encoding" and reconstruct. If HL has less units, encoding compresses. If has
+ more, you got the SPARSE REPRESENTATION, which leads to the invariance. PROBLEM: naturally convergs
+ to the identity matrix (ignoring the extra units). To avoid that, there are 2 regularization
+ strategies: contractive (complex) and denoising (add white noise to the input). It has applications
+ like image denoising, but was kind of abandoned in favour of convolutional NNs.
+
+-CNNs: {convolution layer->pooling layer->}+ fully connected multi-layer perceptron -> output)
+.
+       -Conv. operation: local connectivity, spatial arrangement, parameter sharing
+       KERNEL/MASK important concept
+       conv(f[x,y], g[x,y]) = sum(n1€[-inf,inf]; sum(n2€[-inf,inf]; f[n1,n2]*g[x-n1, y-n2]))
+       the inf are bc of the math. definition, real images stop at the border (or other techniques)
+       -POOLING OPERATION: Max pooling, average pooling: from the diferent convolutions, take the
+       most relevant info. Important concept: LOCAL TRANSLATION INVARIANCE: this pooling technique
+       allows a certain position shifting without loss of information.
+-CNN applications: ImageNet challenge (Krizhnevsky, jeff hinton 2012), semantic of images, video
+     classification, natural language processing, depth estimation, googles deep Q-mind plays atari
+     (with reinforcment learning), NVIDIA corp autonomousdriving.
+     ART: a neural algo. of artistic style (Leon A. Gatys)
+
+
+-useful links:
+http://www.cs.toronto.edu/~graves/handwriting.html
+http://www.ibtimes.co.uk/sci-hub-pirate-bay-scientists-now-available-anonymous-telegram-messaging-app-1560576
+http://arxiv.org/pdf/1508.06576v2.pdf
+https://docs.google.com/document/d/1OurIXrimTr2KKHznDiQ1oafUSghC_2WtT8EEjxm7Ei8/mobilebasic?pli=1
+https://github.com/alexjc/neural-doodle/blob/master/docs/Workflow.gif
+https://magenta.tensorflow.org/welcome-to-magenta
+https://arxiv.org/pdf/1410.5401.pdf
+http://neuralnetworksanddeeplearning.com/chap4.html
+http://bactra.org/notebooks/manifold-learning.html
+####################################################################################################
+
+
+
+
+#### ASSIGNMENT 2
+
+this summarized the very basics. For more infos on multilpe GPUs and more:
+     https://www.tensorflow.org/versions/r0.9/get_started/basic_usage.html
+
+To use TensorFlow you need to understand how TensorFlow:
+    Represents computations as graphs.
+    Executes graphs in the context of Sessions.
+    Represents data as tensors.
+    Maintains state with Variables.
+    Uses feeds and fetches to get data into and out of arbitrary operations.
+
+1) TF is a prog.system. in which you represent computations as graphs, whose are called ops.
+   an operation gets zero or more tensors, performs some computation and returns 0 or more tnsrs.
+   A Tensor is a typed multidim. array
+   so: G=(V,E)=> Computations=(Operations(Tensors), return values of ops-constructor)
+2) So a graph is a description of computations. To compute anything, a graph must be launched in
+   a session, which PLACES the graph ops onto DEVICES (such as CPUs,GPUs) and PROVIDES methods to
+   execute them. These methods return tensors produced by ops as ndarrays in Python, or as
+   tensorflow::Tensor instances in C and C++.
+
+3) a tf prog has usually 2 phases:
+   CONSTRUCTION PHASE (assembling graph)
+   The single defaultgraph in the library is enough for most tasks, see help(tf.Graph)
+
+      CONSTRUCTION EXAMPLE AND CODE:
+      Start with ops that dont need any input (source ops), such as Constant, and pass their output
+      to other ops that do computation.
+      ***The ops constructors return objects that stand for the output of its computation, so
+      you can pass them to other ops to chain computation. for managing multiple graphs. Example:
+      import tensorflow as tf
+
+      # create and add 2 nodes to the default graph. They are Constant ops that produce matrices
+      matrix1 = tf.constant([[3., 3.]])
+      matrix2 = tf.constant([[2.],[2.]])
+      # add the matmul op that takes 'matrix1' and 'matrix2' as inputs. The returned value,
+      # 'product', represents the result of the matrix multiplication.
+      product = tf.matmul(matrix1, matrix2)
+      # now we have 3 nodes. To actually compute, we need a session! see further sample code
+
+   EXECUTION PHASE (using a session to execute ops in the graph)
+
+      EXECUTION EXAMPLE AND CODE:
+      repeatedly execute a set of training ops in the graph. See help(tf.Session) for complete info
+      ***A Session object encapsulates the environment in which Operation objects are executed, and
+      Tensor objects are evaluated. It owns resources, as tf.Variable, tf.QueueBase, tf.ReaderBase,
+      so it is IMPORTANT to free those when we are done,with Session.close() or using the session
+      as a context manager (using the with macro in py) For example:
+
+      # note: see construction example for graph explanation.
+      # Launch the graph in a session, and evaluate the tensor "product":
+      sess = tf.Session()
+      print(sess.run(product))
+      sess.close()
+
+      # OR
+      with tf.Session() as sess:
+           print(sess.run(product))
+      # the session will be active only in the lexical scope of the "with".
+
+      The TensorFlow implementation translates the graph definition into executable operations
+      distributed across available compute resources, such as the CPU or one of your computer's GPU
+      cards. In general you do not have to specify CPUs or GPUs explicitly. TensorFlow uses your
+      first GPU, if you have one, for as many operations as possible.
+
+TENSORS: are the DS of TF to represent data. work as N-dimensional lists, that have a static type,
+         a rank(number of dimensions), and shape (TensorShape, list, or tuple). Example: a possible
+         3-D tensor with shape [2, 7, 3]
+
+VARIABLES: variables mantain state across executions of the graph.
+      # Create a Variable, that will be initialized to the scalar value 0.
+      state = tf.Variable(0, name="counter")
+
+      # Create an Op to add one to `state`.
+
+      one = tf.constant(1)
+       # add and assign are here part of the graph definition, dont happen until session runs
+
+      new_value = tf.add(state, one)
+      update = tf.assign(state, new_value)
+
+      # Variables must be initialized by running an `init` Op after having
+      # launched the graph.  We first have to add the `init` Op to the graph.
+      init_op = tf.initialize_all_variables()
+
+      # Launch the graph and run the ops.
+      with tf.Session() as sess:
+        # Run the 'init' op
+        sess.run(init_op)
+        # Print the initial value of 'state'
+        print(sess.run(state))
+        # Run the op that updates 'state' and print 'state'.
+        for _ in range(3):
+          sess.run(update)
+          print(sess.run(state))
+
+FETCHES:
+
+FEEDS:
+
+
+####################################################################################################
+
+# VIDEOS CONTINUATION:
+
+# TRAINING A DEEP LEARNING NW:
+wider vs deeper: turns out that increasing too much the size of the hidden layers doesnt bring much
+improvement and rises the CPU costs. So deeper improves performance; also, lot of natural phenomena
+tend to have a hierarchical structure, which deep models capture
+
+# REGULARIZATION INTRO:
+why didnt we realize before that deep are good? various reasons, big data didnt come to academic
+world until few years, and improvements in regularization techniques. Skinny jeans problem: "right
+size" is always hard to handle. so better is to have a model "too big" for our data, and then
+prevent it from overfitting
+
+# REGULARIZATION:
+apart from EARLY TERMINATION (stop learning when validation scores start to decrease), we have
+REGULARIZATION: artificial constraints that implicitly reduce the number of free parameters. In
+the "skinny jeans" analogy, are the "stretch pants": fit just as well, but because theyre flexible,
+dont make things harder to fit in.
+     L2 REGULARIZATION: the idea is to add an extra term to the L (loss) fn, to penalize large
+     weights: L' = L + beta*0.5*sum(all_sq_weights)
+     *** it also simplifies a lot calculations: since its added doesnt change the structure, and
+     the derivative for each component is the component itself! D_wn(0.5*(w1² + w2² + ...))= wn
+
+# DROPOUT: (geoffrey hinton, toronto)
+also the dropout works for regularization: destroy (set to 0) the outputs of half of the neurons
+(each time randomly selected), and pass same data many times. Through this "filtered" redundance
+the system is forced to retain the relevant infos. BUT by evaluation you want a deterministic
+model, whose average is not affected by dropout. So not only destroy the half of the activation
+terms, you also MULTIPLY THE RESTING ONES BY 2, so the average remains the same as if no dropout
+was done, and evaluation can go on without dropping out.
+
+#### ASSIGNMENT 3: REGULARIZATION ##################################################################
+see assignment 4 for CNN implementation
+
+the shallow regularized NN returns a test around 94%. Try to improve it:deeper, momentum, rate decay
+
+ghinton slides about grad desc optimization
+http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf
+*** NESTEROV ACCELERATED GRADIENT still not in tensorflow
+
+GREAT INTRO TO GRAD DESC AND ITS OPTIMIZATIONS:
+http://sebastianruder.com/optimizing-gradient-descent/
+
+Adagrad [3] is an algorithm for gradient-based optimization that does just this: It adapts the
+learning rate to the parameters, performing larger updates for infrequent and smaller updates for
+frequent parameters. For this reason, it is well-suited for dealing with sparse data.
+
+Adadelta [6] is an extension of Adagrad that seeks to reduce its aggressive, monotonically
+decreasing learning rate. Instead of accumulating all past squared gradients, Adadelta restricts the
+window of accumulated past gradients to some fixed size w.
+https://www.tensorflow.org/versions/r0.9/api_docs/python/train.html#AdadeltaOptimizer
+
+
+Trial 1: the same 2-layer NN with momentum optimizerand exp learn decay:
+     BETA = 0.0012 # L2 regularization parameter
+     DROPOUT = 1 # 1 means no dropout, as the "passing" ratio
+     RELU_SIGMA = 0.05
+     NN_SIGMA = 0.01
+     INIT_ALPHA = 0.08
+     ALPHA_DECAY = 0.95
+     MOMENTUM =0.5
+     batch_size = 128
+     num_steps = 30001
+
+
+     # Optimizer: set up a variable that's incremented once per batch and
+     # controls the learning rate decay.
+     batch = tf.Variable(0)
+     # Decay once per epoch, using an exponential schedule starting at 0.01.
+     learning_rate = tf.train.exponential_decay(
+         INIT_ALPHA,                # Base learning rate.
+         batch * batch_size,  # Current index into the dataset.
+         train_labels.shape[0],          # Decay step.
+         ALPHA_DECAY,                # Decay rate.
+         staircase=True)
+     # Use simple momentum for the optimization.
+     nn_optimizer= tf.train.MomentumOptimizer(learning_rate,MOMENTUM).
+                                minimize(nn_loss,global_step=batch)
+
+
+     Minibatch loss at step 30000: 0.307515
+     Minibatch accuracy: 96.1%
+     Validation accuracy: 90.1%
+     Test accuracy: 95.5%
+
+Trial 2: same 2-layer NN with adam
+     BETA = 0.0001 # L2 regularization parameter
+     ROPOUT = 0.8 # 1 means no dropout, as the "passing" ratio
+     ELU_SIGMA = 0.05
+     N_SIGMA = 0.01
+     atch_size = 128
+     um_steps = 20001
+     n_optimizer = tf.train.AdamOptimizer().minimize(nn_loss,global_step=batch)
+
+Both means show a test plateau around 95% although the validation results seem to keep getting
+better. Raising regularization lowens test results, so this probably means that the model is
+simply too biased, and further optimizations on regul. or descent techniques wont help. A deeper
+structure seems the path to follow:
+
+Trial 3: NN with 2 hidden layers: 1024x512. Easily overpassed the Trial1 results,though showing
+clear signs of overfitting from step 20K to the end. Could easily get better by changing dropouts
+and maybe reducing batch size and incrementing steps
+      L2_REG = 0.000 # L2 regularization parameter
+      DROPOUT_1 = 1 # 1 means no dropout, as the "passing" ratio
+      DROPOUT_2 = 0.9 # dropout for the 2nd hidden layer
+      RELU_SIGMA = 0.01
+      NN_SIGMA = 0.01
+      INIT_ALPHA = 0.4
+      ALPHA_DECAY = 0.95
+      MOMENTUM =0.3
+      batch_size = 128
+      num_steps = 30001
+      Minibatch loss at step 30000: 0.032068
+      Minibatch accuracy: 99.2%
+      Validation accuracy: 90.8%
+      Test accuracy: 96.0%
+
+
+
+
+####################################################################################################
+########### LESSON 3: CONVOLUTIONAL NEURAL NETWORKS
+####################################################################################################
+
+# QUIZ: if your data has a structure and your nw doesnt have to learn it from scratch is going to
+perform better (for example, recognize text in color fotos, only gray scale needed) One way is
+(R+G+B)/3, but also using the Y of YUV conversion (Y is luma, UV are 2 chrominance components)
+
+# STATISTICAL INVARIANCE:
+if an X-recognizer has to learn the X on the left, and the X for each position it is a lot of work.
+Best to tell it explicitly that objects are the same on all positions: TRANSLATION INVARIANCE. Also
+by getting a meaning of a word from texts: the meaning doesnt change with the position. How do that?
+WEIGHT SHARING: when you know that 2 inputs can contain the same information, share their weights,
+and train them jointly for those inputs. Important idea: statistical invariance, "things that dont
+change  on average across space or time" are everywhere. For images, this idea leads toCONVOLUTIONAL
+NNs, for text and sequences in general, EMBEDDINGS AND RECURRENT NNs.
+
+# CONVOLUTIONAL NWs: (CONVNETS, PATCH/KERNEL, STRIDE->same/valid padding, k=output depth, input
+                     depth has feature maps example RGB input depth is 3 and G is a feature map)
+Convnets are nws that share parameters across space.
+         1) Imagine a foto as a flat pancake, with depth=3(rgb).
+         2) now imagine taking a "patch" and running a NN on it, with K outputs (a vector).
+         3) if you "stride" that NN over the whole foto, WHITHOUT CHANGING THE WEIGHTS.
+         4) so you get n2xm2 many of those vectors: so your output is smaller but "deeper".
+this op is called convolution. If the patch was as big as the foto, would be the same as a regular
+layer on a NN. But the smaller patches have always same parameters and move across space.
+      so a CONVNET is basically a deep NW where instead of stacks of matrix-multiply layers
+      we got stacks of convolutions. The idea is that they form a pyramid, progressively squeezing
+      the image and increasing "depth", wich corresponds roughly to the semantic complexity of the
+      representation. At the top, you can put your classifier. All space-related contents have been
+      translated into semantic contents at that point.
+
+# CONVOLUTIONS CONTINUED:
+to train it, you just build the "pyramid" and once you get a deep and narrow representation pass it
+to a few fully connected layers, and youre ready to train your classifier. The chain rule still
+holds: (x_1 and x_2 share a weight => Y).
+       delta(L)/delta(W)=[delta(L)/delta(W)](x_1)+[delta(L)/delta(W)](x2)
+       which means to compute the derivative of the loss
+       just "add the gradients for all the possible locations on the image""
+
+# EXPLORE THE DESIGN SPACE, improving CNNs: pooling, 1x1 (one-by-one) convolutions, inception arch
+  POOLING: higher global stride is too radical. Better to have stride 1 but somehow combine all
+           convols in a neighborhood.
+           1) max pooling: most common. at every point of the feature map, look at a SMALL NEIGBHOOD
+              around it and return the max response of all. (param.rfree, oft more accurate but more
+              expensive and hyperpars(pooling size and pool. stride).
+*** a very typical arch for convnet: {conv->max pool->}+ {fully connected->}+ classifier.
+    like in LENET-5 (yann lecun 98), ALEXNET (krizhevsky 12).
+           2) average pooling: like a blurred lowers view of the feature map below (more further)
+
+# 1x1 (one by one) CONVOLUTIONS AND AVERAGE POOLING:
+why would be 1-pixel convs useful? The "normal" kernels are actually "log. classifiers" for a small
+patch. They return a n-deep vector, which from above look like 1x1. So if we add a 1x1 conv on
+the top on that, we effectively have a 2-layer NN, which is an inexpensive way to have deeper models
+with more parameters (since 1x1 convolutions are simply matrix mults.) without changing that much.
+
+# INCEPTION MODULES:
+strategy very effective at building convnets both smaller and better than simply use a conv pyramid.
+The idea is that at each layer, instead of making choices (pooling, patch size...) all of them are
+done and their outputs concatenated at the top.
+Looks complicated, but it can improve performance and at the  same time keeping parameter no. low.
+
+
+
+# CONCLUSION: this is one of the fun things about NNs: lots of building blocks, exploring different
+ideas quickly and come up with interesting models for problems.
+
+# READINGS: http://arxiv.org/pdf/1603.07285v1.pdf
+For a closer look at the arithmetic behind convolution, and how it is affected by your choice of
+padding scheme, stride and other parameters, please refer to this illustrated guide
+
+# ASSIGNMENTS:
+convnets is where GPUs begin to be necessary, the basic assignments work on CPU but not able to be
+very creative, like inception and so, without more HW.
+
+
+#### ASSIGNMENT 4: DESIGN AND TRAIN A CNN ##########################################################
+Improve the model by experimenting with its structure - how many layers, how they are connected,
+stride, pooling, etc. For more efficient training, try applying techniques such as dropout and
+learning rate decay. What does your final architecture look like?
+
+
+https://www.tensorflow.org/versions/r0.8/tutorials/mnist/pros/index.html
+ Getting 91% accuracy on MNIST is bad. It's almost embarrassingly bad. In this section, we'll fix
+ that, jumping from a very simple model to something moderately sophisticated: a small convolutional
+ neural network. This will get us to around 99.2% accuracy -- not state of the art, but respectable.
+
+
+TUTORIAL ON DATA PREPROP, WEIGHT INIT, REGULARIZATION...
+http://cs231n.github.io/neural-networks-2/
+
+
+####################################################################################################
+########### LESSON 4: DEEP MODELS FOR TEXT AND SEQUENCES
+####################################################################################################
+
+### TRAIN A TEXT EMBEDDING MODEL:
+how to handle text in a deep model. classify text: politics, science? words are really difficult,
+the rare ones are normally the important ones. For deep learning, those rare examples are a problem.
+We need lots of training examples.
+
+### SEMANTICAL AMBIGUITY:
+another problem is that we use different words to mean the same, but words themselves are not
+necessarily similar (ex. cat kitty). So if we want to share anything between them, we have to learn
+that they are related.So thats a very big problem: we want to see words often enough to be able to
+learn they meaning automatically, and also how words relate to each others to be able to share
+parameters between them.
+
+*** problem: But that would require to collect an absurdly excessive amount of labeled
+data for any task that matters. So we switch to unsuperv. learning
+
+## UNSUPERVISED LEARNING:
+it is easy to find lots of text without labels to train on, if you figure out how to learn from it.
+Simple but powerful idea: similar words tend to occur in similar contexts.
+
+## EMBEDDINGS:
+So similar words share similar contexts (the "cat/kitty" purrs, haunts mice). So lets learn to
+predict a word's context, if the model is good would have to treat cat and kitty similarly.
+Kind of clustering: MAP WORDS TO VECTORS CALLED EMBEDDINGS, WHICH ARE CLOSE WHEN WORDS HAVE SIMILAR
+MEANINGS. Embeddings solve some of the sparsity problem: all those different words are represented
+in a normalized way, into a small vector and the model no longer has to learn new things for every
+way there is to talk about a cat, it can generalize from the particular cat-pattern in that vector
+space which contains cat-related things.
+
+# WORD2VEC:
+one way to learn those embeddings: simple but works well. Map each word to an "embedding" (a
+vector), usually random, which we'll use to try to predict the context of the word. And then
+around each word we set a fixed-size window (thats our context) and take a random word as TARGET.
+Then train a logistic regression where (x,y)=>(word, target).
+
+# tSNE: t-distributed stochastic neighbor embedding  tee-snee (laurens van dermaaten - geoff hinton)
+how represent those embeddings? visualize their clustering? 1)nearest neighbourhood lookup?
+2) dimensionality reduction?=> PCA is naive, lots of loss. What we need is a way of projection that
+preservesthe neighb. structur of data: far things should remain far. tSNE is your friend!
+
+****************************************************************************************************
+** EXCURS: GOOGLE TECH-TALK: VISUALIZING DATA USING t-SNE, Laurens van der Maaten (creator)
+https://www.youtube.com/watch?v=RJVL80Gg3lA&list=UUtXKDgv1AVoG88PLl8nGXmw
+
+  -Task: build low-d "map" in which distances between points reflect similarities in the high-d data
+  -how: minimize some objective function that measures  DISCREPANCY between data<->map similarities
+  -PCA example: 28x28 imgs of digits into 2D: left: zeroes, right:ones, top:4,7,9, bottom:3,5,8. 2??
+   this is fairly OK just with the colors. b&w is basically one blob of data. Can we do better? is
+   PCA minimizing the right objective fn? PCA is concerned with maximize var, that is preserving
+   large pairwise distances of the orig. map. so minimize the sq. error: make sure that far elements
+   end up far.
+  -But is that reliable? NO: if you think of data in terms of a non-linear manifold (slide: example
+   with data forming a "spiral"), the eucl. distance wont reflect similarity (f.ex. between differnt
+   "loops" of the spiral the points are "close" but unrelated).
+  -What is reliable is the very small ones: those work always. People realized that in the 2000s,
+   (example:isomap. pass the distances to the PCA, not the points. Works better, but b&w still
+   without clear structure). (ex2: locally linear embedding. Like tsne has also this will to keep
+   small distances together, but tends to collapse everything in the origin and then has a bunch of
+   outliers just to satisfy a covariance constraint that it has).
+  -t-SNE(t-distributed stochastic neighbor embedding) takes from locally linear embedding, and tries
+   to adress its problems.
+  -HOW(1): first, measure paarweise similarities calculating p_(i,j)=exp(-.../2sigma)/sum(exp...)
+   which is the simil. probability between i,j modelled as a normalized gaussian distribution
+   (the sum... part  is the normalization.). But in practice dont really normalize: for each case,
+   sigma is set in a way so that a fixed no. of points always fits in the gaussian. The reason is to
+   adapt to the changing densities, so not joint probabilities, but conditional distributions:
+         p(j|i)=xp(-||x_i-x_j||²/(2sigma_i²))/sum(over j'!=i; exp(-||x_i-x_j'||²/(2sigma_i²)))
+  -HOW(2): and finally "trick", simmetrize the conditionals: p(ij)=  [p(j|i)+p(i|j)] / (2N)
+  -HOW(3): now we go to the low-d map, set some representation of the high-d points, and measure
+   their joint probs: q(ij)= [(1+||y_i-y_j||²)^(-1)] / [sum(k; sum(l!=k; (1+||y_k-y_l||²)^(-1))]
+   ***NOTE: qij uses a student-t distribution instead of gaussian. why? bc when reducing dim. based
+            on local similarity, the non-similarities INCREASE. By modelling the p with gauss and
+            the q with 1-dim student we "allow" this to happen,since the student is more "spreaded".
+   ***WE WANT THIS q_ij TO REFLECT THE p_ij AS CLOSE AS POSSIBLE***
+  -HOW(4): to measure this similarity between p and q we use the KULLBACK-LEIBLER DIVERGENCE:
+   is a measure of the difference between two probability distributions P and Q. It is not symmetric
+   in P and Q. In applications, P typically represents the "true" distribution of data,
+   observations, or a precisely calculated theoretical distribution, while Q typically represents a
+   theory/model/description/approximation of P. Sort of the standard measure. Goal: MINIMIZE IT
+                                          KL(P||Q) = sum(i; sum(j!=i; p(ij)*log(pij/qij)))
+  -HOW(5): how minimize it? GRADIENT DESCENT. More on KL-DIVERGENCE:
+           -large pij modelled by small qij get big penalty. The opposite gets small penalty-
+           -Hence, t-SNE mainly PRESERVES LOCAL SIMILARITY STRUCTURE OF DATA
+  -EXAMPLE: animation. not only preserves GLOBAL structure (clusters), but also LOCAL (for example
+   in the 0s cluster, the more round ones are left and the more vertical ones right). Other example:
+   textures.
+  -GRADIENT INTERPRETATION point C: del(C)/del(y_i)=4*sum(j!=i; (pij-qij)*(1+|yi-yj|³)^(-1)*(yi-yj))
+   in the sum: the last term is a direction vector, before is its "compression" scalar term. It
+   represents the "force" that j exerces to i. So we sum all those forces.
+  -BARNES-HUT APPROXIMATION: GD can be expensive for more than 10k samples,this approx woks in nlogn
+   comes from astronomy: taking n close points, compute only the "force" of their mean point and
+   multiply it by n to get an approximation of the sum of their forces.
+  -NLOGN: for 2D output map, put the points in a quadtree, until each cell has only a single point.
+   then traverse the tree top-bottom by checking a condition: is this node compact enough and far
+   enough from the root to "compress" it? if yes, compute barnes-hut approx of all its children.
+   more details video, min 29
+  -BIG DATA EXAMPLES: MNIST, CIFAR, GOOGLE STREET VIEW NUMBERS, TIMIT (1.1 million speech samples).
+  -LIMITATIONS OF USING A SINGLE MAP: river similar to bank,bank to bailout but river not to bailout
+   the 3 words are going to be close, or one too far which is a problem. t-SNE with multiple maps,
+   formula and details video, min 39.
+  -Q&A: * the cost FN is invariant to the rotation of the map, bc takes only distances into account
+          BUT it is also non-convex, so youre going to get slightly different results each time.
+        * only the "smaller" distances tell us something, try not to interpret bigger ones
+        * hierarchical representation of maps with different abstraction levels, working on that
+        * it is also only for visualization, doesnt build a functional relation from highd to lowd.
+          so if a new element comes, no idea where it will exactly end. Anyway, it would be possible
+        * regarding multiple maps: each word is only once per map, tried to do multiple but didnt go
+        * fixed perplexity: adjusting sigma to fixed no. of neighbours: quite robust in the practice
+          for larger sets, you rather want this no. to be larger. 5-10k sets, somewhat btween 10-50
+          if too little, starts to see more clusters.
+
+****************************************************************************************************
+
+*** EXCURS: A Brief Introduction to Graphical Models and Bayesian Networks (Kevin Murphy, 1998)
+http://www.cs.ubc.ca/~murphyk/Bayes/bnintro.html
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+****************************************************************************************************
+
+
+
+
+
+
+
+# WORD2VEC DETAILS:
+- since vector lenght is not relevant, its best to measure similarities using a cosine distance
+  = dot(v_cat, v_kitten)/(|vcat|*|vkitten|) instead of L2 (euclidean). In fact is often better to
+  normalize all embedding vectors.
+- problem of predicting context: they might be many words on the vocabulary, and computing the
+  softmax fn on that long logit can be inefficient (model: W*Vcat+b=>softmax=>crossentropy=>one-hot)
+  Trick: instead of training the model on the complete one-hot, you can pick only some of the non
+  target words (those who have 0 in the one-hot) and ignore the rest => SAMPLED SOFTMAX makes things
+  faster at no performance cost.
+
+# QUIZ: WORD ANALOGY GAME kitten-cat+dog=puppy and so
+
+
+#### ASSIGNMENT 5: WORD2VEC AND CBOW ###############################################################
+How does your CBOW model perform compared to the given Word2Vec model?
+
+
+
+
+
+
+
+
+
+
+
+# SEQUENCES OF VARYING LENGTH:
+this worked for single words, what happens with sequences of varying length?
+
+# RNNs:
+recursive NNs are in time what convol. NNs are in space. At each timepoint, we want to make
+a decision of what's happened so far in the sequence. So at each one we apply W1, W2, W3...
+this would be very inefficient so taking the idea of kernels we design a W that applies every time.
+We also want to regard what happened in the past, so: we interpret the state at each step as a
+summary of what happened before, and from take to take we connect a recursive layer R1, R2...
+this would be also very expensive, so we use the same R always (didnt get well why/how...).
+so you end up with a NW with a relatively simple repeating pattern: part of the classifier
+connecting to the input at each timestep, (W) and another part called the recurrent connection
+connecting to the past at each step (R).
+
+# BACKPROP THROUGH TIME:
+ideally we compute the backprop from each step until the beginning (or in practice as many steps
+as we can afford). At each step, all the derivatives are going to be applied to the same parameters.
+Thats a lot of correlated updates at once for the same weights, which makes the math very unstable:
+the more we backpropagate the gradients, either they grow exponentially to inf or converge to zero
+and end up not training anything.
+
+
+
+mirate esto xfa http://karpathy.github.io/2015/05/21/rnn-effectiveness/
+https://cs224d.stanford.edu/reports/NayebiAran.pdf
+y los papers del escritorio!
